@@ -42,6 +42,8 @@ public:
         int code_lines = 0;
     };
 
+    // Analyzes a single file and returns its statistics.
+    FileStats analyzeFile(const fs::path& file_path, const Language& lang);
 private:
     // Vector to store the paths of the files found.
     std::vector<std::filesystem::path> files;

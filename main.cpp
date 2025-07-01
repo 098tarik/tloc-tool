@@ -9,82 +9,6 @@
 
 namespace fs = std::filesystem;
 
-// Analyzes a single file to count total, blank, comment, and code lines.
-void analyze_file(const fs::path& file_path, FileParser::FileStats& stats, const FileParser::Language& lang) {
-    stats.file_path = file_path;
-    std::ifstream file(file_path);
-    std::string line;
-    bool in_multiline_comment = false;
-    bool in_code_block = false;
-
-    // Read the file line by line.
-    while (std::getline(file, line)) {
-        stats.total_lines++;
-        // Check for blank lines.
-        if (line.find_first_not_of(" \t\n\v\f\r") == std::string::npos) {
-            stats.blank_lines++;
-            continue;
-        }
-
-        // Handle Markdown files.
-        if (lang.name == "Markdown") {
-            if (line.rfind(lang.code_block_start, 0) == 0) {
-                in_code_block = !in_code_block;
-                continue;
-            }
-            if (in_code_block) {
-                stats.code_lines++;
-            }
-            continue;
-        }
-
-        // Handle Text files.
-        if (lang.name == "Text") {
-            stats.code_lines++;
-            continue;
-        }
-
-        size_t first_char = line.find_first_not_of(" \t");
-        bool code_on_line = false;
-
-        // Handle multi-line comments.
-        if (in_multiline_comment) {
-            stats.comment_lines++;
-            if (!lang.multi_line_comment_end.empty() && line.find(lang.multi_line_comment_end) != std::string::npos) {
-                in_multiline_comment = false;
-                size_t comment_end = line.find(lang.multi_line_comment_end) + lang.multi_line_comment_end.length();
-                if (comment_end < line.length() && line.find_first_not_of(" \t", comment_end) != std::string::npos) {
-                    code_on_line = true;
-                }
-            }
-        } else {
-            // Handle single-line and multi-line comments.
-            if (first_char != std::string::npos) {
-                if (!lang.line_comment.empty() && line.substr(first_char, lang.line_comment.length()) == lang.line_comment) {
-                    stats.comment_lines++;
-                } else if (!lang.multi_line_comment_start.empty() && line.find(lang.multi_line_comment_start) != std::string::npos) {
-                    stats.comment_lines++;
-                    if (line.find(lang.multi_line_comment_end, line.find(lang.multi_line_comment_start) + lang.multi_line_comment_start.length()) == std::string::npos) {
-                        in_multiline_comment = true;
-                    }
-                    if (line.find_first_not_of(" \t") < line.find(lang.multi_line_comment_start)) {
-                        code_on_line = true;
-                    }
-                } else {
-                    code_on_line = true;
-                }
-            } else {
-                code_on_line = true;
-            }
-        }
-
-        // If there is code on the line, increment the code line count.
-        if (code_on_line) {
-            stats.code_lines++;
-        }
-    }
-}
-
 // Main function to drive the code analysis.
 int main(int argc, char* argv[]) {
     // Check for the correct number of command-line arguments.
@@ -155,16 +79,15 @@ int main(int argc, char* argv[]) {
 
     // Analyze each file and aggregate the statistics.
     for (const auto& file : parser.getDirectories()) {
-        FileParser::FileStats stats;
         std::string ext = file.extension().string();
         if (lang_map.count(ext)) {
-            analyze_file(file, stats, lang_map.at(ext));
+            FileParser::FileStats stats = parser.analyzeFile(file, lang_map.at(ext));
+            all_stats.push_back(stats);
+            total_lines += stats.total_lines;
+            total_blank_lines += stats.blank_lines;
+            total_comment_lines += stats.comment_lines;
+            total_code_lines += stats.code_lines;
         }
-        all_stats.push_back(stats);
-        total_lines += stats.total_lines;
-        total_blank_lines += stats.blank_lines;
-        total_comment_lines += stats.comment_lines;
-        total_code_lines += stats.code_lines;
     }
 
 // Print the per-file report if requested.
