@@ -1,4 +1,4 @@
-# Code Counter
+# TLOC
 
 This is a simple C++ command-line tool to count lines of code in a given directory. It can distinguish between total lines, blank lines, comment lines, and code lines for various programming languages.
 
